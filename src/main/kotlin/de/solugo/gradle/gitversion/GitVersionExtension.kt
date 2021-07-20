@@ -10,6 +10,7 @@ import org.gradle.util.VersionNumber
 open class GitVersionExtension(
     private val project: Project
 ) {
+    val prefix = project.objects.property(String::class.java)
 
     val versionNumber by lazy {
         val repository = FileRepositoryBuilder().run {
@@ -18,7 +19,7 @@ open class GitVersionExtension(
             build()
         }
 
-        val prefix = "refs/tags/"
+        val prefix = "refs/tags/" + (prefix.orNull ?: "")
         val (tag, tagVersion) = repository.refDatabase.getRefsByPrefix(prefix).asSequence().mapNotNull { tag ->
             VersionNumber.parse(tag.name.removePrefix(prefix)).takeUnless {
                 it == VersionNumber.UNKNOWN

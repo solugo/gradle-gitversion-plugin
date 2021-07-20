@@ -176,4 +176,33 @@ class GitVersionPluginTest {
         }
     }
 
+    @Test
+    fun `version is calculated successfully with prefix`() {
+        withTemporaryFolder {
+            extract("configured")
+            git {
+                commit().apply {
+                    message = "Initial commit"
+                    call()
+                }
+                tag().apply {
+                    name = "TEST-1.0.0"
+                    call()
+                }
+                commit().apply {
+                    setAllowEmpty(true)
+                    message = "Second commit"
+                    call()
+                }
+                tag().apply {
+                    name = "2.0.0"
+                    call()
+                }
+            }
+            resolve("content.txt").writeText("changed")
+            gradle("versionInfo") {
+                assertThat(output).contains("Version: 1.0.2")
+            }
+        }
+    }
 }
