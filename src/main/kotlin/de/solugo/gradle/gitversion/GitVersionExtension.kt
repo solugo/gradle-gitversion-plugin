@@ -33,6 +33,8 @@ open class GitVersionExtension(
         set(project.provider { project.properties["gitVersionPatchCommitPattern"]?.toString() ?: ".*" })
     }
 
+    val version; get() = version()
+
     @JvmOverloads
     fun version(
         override: String? = this.override.orNull,
@@ -42,7 +44,7 @@ open class GitVersionExtension(
         majorCommitPattern: String? = this.majorCommitPattern.orNull,
         minorCommitPattern: String? = this.minorCommitPattern.orNull,
         patchCommitPattern: String? = this.patchCommitPattern.orNull,
-    ): String? {
+    ): Any {
         if (override != null) {
             return override
         }
@@ -51,11 +53,12 @@ open class GitVersionExtension(
 
         val repository = FileRepositoryBuilder().run {
             findGitDir(project.projectDir)
-            gitDir ?: return null
+            gitDir ?: return project.version
             build()
         }
 
-        val walk = RevWalk(repository).apply { markStart(parseCommit(repository.resolve("HEAD"))) }
+        val head = repository.resolve("HEAD") ?: return project.version
+        val walk = RevWalk(repository).apply { markStart(parseCommit(head)) }
 
         val tagInfo = repository.refDatabase.getRefsByPrefix(actualPrefix).asSequence().mapNotNull { tag ->
             try {
@@ -129,7 +132,6 @@ open class GitVersionExtension(
 
         return Version(versionMajor, versionMinor, versionPatch, versionQualifier).toString()
     }
-
 
     private data class Version(
         val major: Int = 0,
