@@ -1,8 +1,8 @@
 plugins {
-    id("org.jetbrains.kotlin.jvm") version "1.5.20"
-    id("com.gradle.plugin-publish") version "0.10.0"
-    id("maven-publish")
     id("java-gradle-plugin")
+    id("maven-publish")
+    id("org.jetbrains.kotlin.jvm") version "1.5.31"
+    id("com.gradle.plugin-publish") version "0.16.0"
 }
 
 group = "de.solugo.gradle"
