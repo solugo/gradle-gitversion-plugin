@@ -14,19 +14,20 @@ repositories {
 
 dependencies {
     implementation(gradleApi())
-    implementation("org.eclipse.jgit:org.eclipse.jgit:5.12.0.202106070339-r")
+    implementation("org.eclipse.jgit:org.eclipse.jgit:5.13.0.202109080827-r")
 
     testImplementation(gradleTestKit())
-    testImplementation("org.assertj:assertj-core:3.20.2")
-    testImplementation("io.github.classgraph:classgraph:4.8.110")
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.3.1")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.3.1")
+    testImplementation("de.solugo.gradle.test:gradle-test-core:1.0.0")
+    testImplementation("de.solugo.gradle.test:gradle-test-git:1.0.0")
+    testImplementation("org.assertj:assertj-core:3.21.0")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.8.1")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.8.1")
 }
 
 gradlePlugin {
     plugins {
         create("gitversionPlugin") {
-            id = "de.solugo.gradle.gitversion"
+            id = "de.solugo.gitversion"
             implementationClass = "de.solugo.gradle.gitversion.GitVersionPlugin"
         }
     }

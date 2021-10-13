@@ -1,11 +1,12 @@
 plugins {
-    id("de.solugo.gradle.gitversion")
+    id("de.solugo.gitversion")
 }
 
 gitVersion {
-    prefix.set("TEST-")
-    apply()
+    tagPrefix.set("TEST-")
 }
+
+version = gitVersion.version()
 
 tasks.create("versionInfo").doFirst {
     println("Version: $version")

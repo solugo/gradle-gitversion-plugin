@@ -1,45 +1,54 @@
 package de.solugo.gradle.gitversion
 
-import de.solugo.gradle.helm.extract
-import de.solugo.gradle.helm.git
-import de.solugo.gradle.helm.gradle
-import de.solugo.gradle.helm.withTemporaryFolder
+import de.solugo.gradle.test.core.Directory.Helper.extractDirectoryFromClasspath
+import de.solugo.gradle.test.core.Directory.Helper.file
+import de.solugo.gradle.test.core.Directory.Helper.withTemporaryDirectory
+import de.solugo.gradle.test.core.Executor.Companion.execute
+import de.solugo.gradle.test.core.GradleTest
+import de.solugo.gradle.test.git.Git.Companion.git
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
-
 
 class GitVersionPluginTest {
 
     @Test
     fun `version is calculated successfully without git`() {
-        withTemporaryFolder {
-            extract("simple")
-            gradle("versionInfo") {
+        GradleTest {
+            withTemporaryDirectory {
+                path.extractDirectoryFromClasspath("common", "simple")
+            }
+            execute("versionInfo") {
                 assertThat(output).contains("Version: unspecified")
             }
         }
     }
 
     @Test
-    fun `version is calculated successfully for tag`() {
-        withTemporaryFolder {
-            extract("simple")
-            git {
-                add().apply {
-                    addFilepattern(".")
-                    call()
-                }
-                commit().apply {
-                    setAll(true)
-                    message = "Initial commit"
-                    call()
-                }
-                tag().apply {
-                    name = "1.0.0"
-                    call()
-                }
+    fun `version is calculated successfully without tag`() {
+        GradleTest {
+            withTemporaryDirectory {
+                path.extractDirectoryFromClasspath("common", "simple")
             }
-            gradle("versionInfo") {
+            git {
+                commit("Initial commit")
+            }
+            execute("versionInfo") {
+                assertThat(output).contains("Version: 0.0.1")
+            }
+        }
+    }
+
+    @Test
+    fun `version is calculated successfully for tag`() {
+        GradleTest {
+            withTemporaryDirectory {
+                path.extractDirectoryFromClasspath("common", "simple")
+            }
+            git {
+                commit("Initial commit")
+                tag("1.0.0")
+            }
+            execute("versionInfo") {
                 assertThat(output).contains("Version: 1.0.0")
             }
         }
@@ -47,29 +56,16 @@ class GitVersionPluginTest {
 
     @Test
     fun `version is calculated successfully for commit after tag`() {
-        withTemporaryFolder {
-            extract("simple")
-            git {
-                add().apply {
-                    addFilepattern(".")
-                    call()
-                }
-                commit().apply {
-                    setAll(true)
-                    message = "Initial commit"
-                    call()
-                }
-                tag().apply {
-                    name = "1.0.0"
-                    call()
-                }
-                commit().apply {
-                    setAllowEmpty(true)
-                    message = "Second commit"
-                    call()
-                }
+        GradleTest {
+            withTemporaryDirectory {
+                path.extractDirectoryFromClasspath("common", "simple")
             }
-            gradle("versionInfo") {
+            git {
+                commit("Initial commit")
+                tag("1.0.0")
+                commit("Second commit")
+            }
+            execute("versionInfo") {
                 assertThat(output).contains("Version: 1.0.1")
             }
         }
@@ -77,32 +73,17 @@ class GitVersionPluginTest {
 
     @Test
     fun `version is calculated successfully for commit on unparseable tag`() {
-        withTemporaryFolder {
-            extract("simple")
-            git {
-                add().apply {
-                    addFilepattern(".")
-                    call()
-                }
-                commit().apply {
-                    message = "Initial commit"
-                    call()
-                }
-                tag().apply {
-                    name = "1.0.0"
-                    call()
-                }
-                commit().apply {
-                    setAllowEmpty(true)
-                    message = "Second commit"
-                    call()
-                }
-                tag().apply {
-                    name = "wrongformat"
-                    call()
-                }
+        GradleTest {
+            withTemporaryDirectory {
+                path.extractDirectoryFromClasspath("common", "simple")
             }
-            gradle("versionInfo") {
+            git {
+                commit("Initial commit")
+                tag("1.0.0")
+                commit("Second commit")
+                tag("wrongformat")
+            }
+            execute("versionInfo") {
                 assertThat(output).contains("Version: 1.0.1")
             }
         }
@@ -110,32 +91,17 @@ class GitVersionPluginTest {
 
     @Test
     fun `version is calculated successfully for commit on second tag`() {
-        withTemporaryFolder {
-            extract("simple")
-            git {
-                add().apply {
-                    addFilepattern(".")
-                    call()
-                }
-                commit().apply {
-                    message = "Initial commit"
-                    call()
-                }
-                tag().apply {
-                    name = "1.0.0"
-                    call()
-                }
-                commit().apply {
-                    setAllowEmpty(true)
-                    message = "Second commit"
-                    call()
-                }
-                tag().apply {
-                    name = "2.0.0"
-                    call()
-                }
+        GradleTest {
+            withTemporaryDirectory {
+                path.extractDirectoryFromClasspath("common", "simple")
             }
-            gradle("versionInfo") {
+            git {
+                commit("Initial commit")
+                tag("1.0.0")
+                commit("Second commit")
+                tag("2.0.0")
+            }
+            execute("versionInfo") {
                 assertThat(output).contains("Version: 2.0.0")
             }
         }
@@ -143,65 +109,87 @@ class GitVersionPluginTest {
 
     @Test
     fun `version is calculated successfully for dirty state`() {
-        withTemporaryFolder {
-            extract("simple")
-            git {
-                commit().apply {
-                    message = "Initial commit"
-                    call()
-                }
-                tag().apply {
-                    name = "1.0.0"
-                    call()
-                }
-                commit().apply {
-                    setAllowEmpty(true)
-                    message = "Second commit"
-                    call()
-                }
-                tag().apply {
-                    name = "2.0.0"
-                    call()
-                }
-                commit().apply {
-                    setAllowEmpty(true)
-                    message = "Third commit"
-                    call()
-                }
+        GradleTest {
+            withTemporaryDirectory {
+                path.extractDirectoryFromClasspath("common", "simple")
             }
-            resolve("content.txt").writeText("changed")
-            gradle("versionInfo") {
+            git {
+                commit("Initial commit")
+                tag("1.0.0")
+                commit("Second commit")
+                tag("2.0.0")
+                commit("Third commit")
+            }
+            file("content.txt") {
+                writeText("changed")
+            }
+            execute("versionInfo") {
                 assertThat(output).contains("Version: 2.0.2-SNAPSHOT")
             }
         }
     }
 
     @Test
-    fun `version is calculated successfully with prefix`() {
-        withTemporaryFolder {
-            extract("configured")
-            git {
-                commit().apply {
-                    message = "Initial commit"
-                    call()
-                }
-                tag().apply {
-                    name = "TEST-1.0.0"
-                    call()
-                }
-                commit().apply {
-                    setAllowEmpty(true)
-                    message = "Second commit"
-                    call()
-                }
-                tag().apply {
-                    name = "2.0.0"
-                    call()
-                }
+    fun `version is calculated successfully with configured prefix`() {
+        GradleTest {
+            withTemporaryDirectory {
+                path.extractDirectoryFromClasspath("common", "configured")
             }
-            resolve("content.txt").writeText("changed")
-            gradle("versionInfo") {
+            git {
+                commit("Initial commit")
+                tag("TEST-1.0.0")
+                commit("Second commit")
+                tag("2.0.0")
+            }
+            file("content.txt") {
+                writeText("changed")
+            }
+            execute("versionInfo") {
                 assertThat(output).contains("Version: 1.0.2")
+            }
+        }
+    }
+
+    @Test
+    fun `version is calculated successfully with properties prefix`() {
+        GradleTest {
+            withTemporaryDirectory {
+                path.extractDirectoryFromClasspath("common", "properties")
+            }
+            git {
+                commit("Initial commit")
+                tag("VERSION-1.0.0")
+                commit("patch: Second commit")
+                tag("2.0.0")
+            }
+            file("content.txt") {
+                writeText("changed")
+            }
+            execute("versionInfo") {
+                assertThat(output).contains("Version: 1.0.2")
+            }
+        }
+    }
+
+    @Test
+    fun `version is calculated successfully with semantic history`() {
+        GradleTest {
+            withTemporaryDirectory {
+                path.extractDirectoryFromClasspath("common", "properties")
+            }
+            git {
+                commit("Initial commit")
+                tag("VERSION-1.0.0")
+                commit("breaking: breaking change")
+                commit("feature: custom new feature")
+                commit("try: tried to fix it")
+                commit("patch: feature bugfix")
+            }
+            file("content.txt") {
+                writeText("changed")
+            }
+            execute("versionInfo") {
+                assertThat(output).contains("Version: 2.1.2-SNAPSHOT")
             }
         }
     }
