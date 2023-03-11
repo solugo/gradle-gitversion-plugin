@@ -1,56 +1,47 @@
 plugins {
     id("java-gradle-plugin")
     id("maven-publish")
-    id("org.jetbrains.kotlin.jvm") version "1.5.31"
-    id("com.gradle.plugin-publish") version "0.16.0"
+    id("org.jetbrains.kotlin.jvm") version "1.8.10"
+    id("com.gradle.plugin-publish") version "1.1.0"
 }
 
 group = "de.solugo.gradle"
-version = "1.0.0"
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
+    val gradleTestVersion = "1.0.3"
+    val junitVersion = "5.8.1"
+
     implementation(gradleApi())
-    implementation("org.eclipse.jgit:org.eclipse.jgit:5.13.0.202109080827-r")
+    implementation("org.eclipse.jgit:org.eclipse.jgit:6.5.0.202303070854-r")
+    implementation("org.semver:api:0.9.33")
 
     testImplementation(gradleTestKit())
-    testImplementation("de.solugo.gradle.test:gradle-test-core:1.0.0")
-    testImplementation("de.solugo.gradle.test:gradle-test-git:1.0.0")
+    testImplementation("de.solugo.gradle.test:gradle-test-core:$gradleTestVersion")
+    testImplementation("de.solugo.gradle.test:gradle-test-git:$gradleTestVersion")
     testImplementation("org.assertj:assertj-core:3.21.0")
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.8.1")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.8.1")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:$junitVersion")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:$junitVersion")
 }
 
 gradlePlugin {
     plugins {
-        create("gitversionPlugin") {
+        create("gitVersionPlugin") {
             id = "de.solugo.gitversion"
             implementationClass = "de.solugo.gradle.gitversion.GitVersionPlugin"
+            displayName = "Gradle Git Version plugin"
+            description = "Plugin for version calculation based on git commits"
         }
     }
 }
 
-pluginBundle {
-    website = "https://github.com/solugo/gradle-gitversion-plugin"
-    vcsUrl = "https://github.com/solugo/gradle-gitversion-plugin.git"
-
-    plugins {
-        getByName("gitversionPlugin") {
-            displayName = "Gradle Git Version plugin"
-            description = "Plugin for version calculation based on git commits"
-            tags = listOf("git", "version")
-        }
-    }
+kotlin {
+    jvmToolchain(11)
 }
 
 tasks.withType<Test> {
     useJUnitPlatform()
-}
-
-tasks.withType<JavaCompile> {
-    sourceCompatibility = "1.8"
-    targetCompatibility = "1.8"
 }

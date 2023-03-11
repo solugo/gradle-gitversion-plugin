@@ -1,6 +1,7 @@
 package de.solugo.gradle.gitversion
 
 import de.solugo.gradle.test.core.Directory.Helper.extractDirectoryFromClasspath
+import de.solugo.gradle.test.core.Directory.Helper.extractFileFromClasspath
 import de.solugo.gradle.test.core.Directory.Helper.file
 import de.solugo.gradle.test.core.Directory.Helper.withTemporaryDirectory
 import de.solugo.gradle.test.core.Executor.Companion.execute
@@ -12,185 +13,221 @@ import org.junit.jupiter.api.Test
 class GitVersionPluginTest {
 
     @Test
-    fun `version is calculated successfully without git`() {
+    fun `shows correct task descriptions`() {
         GradleTest {
             withTemporaryDirectory {
-                path.extractDirectoryFromClasspath("common", "simple")
+                path.extractDirectoryFromClasspath("common")
+                path.extractFileFromClasspath("other/gitignore", ".gitignore")
             }
-            execute("versionInfo") {
-                assertThat(output).contains("Version: unspecified")
+            execute("tasks") {
+                assertThat(output).contains(
+                    """
+                    GitVersion tasks
+                    ----------------
+                    gitVersionCreatePropertiesFile - Create gitVersion properties file
+                    gitVersionCreateVersionFile - Create gitVersion version file
+                    gitVersionPrintBuildInfo - Print gitVersion build info
+                    """.trimIndent()
+                )
             }
         }
     }
 
     @Test
-    fun `version is calculated successfully without tag`() {
+    fun `version is not calculated for missing git repository`() {
         GradleTest {
             withTemporaryDirectory {
-                path.extractDirectoryFromClasspath("common", "simple")
+                path.extractDirectoryFromClasspath("common")
+                path.extractFileFromClasspath("other/gitignore", ".gitignore")
             }
-            git {
-                commit("Initial commit")
-            }
-            execute("versionInfo") {
-                assertThat(output).contains("Version: 0.0.1")
+            execute("-PgitVersionPipeline=none", "-Pversion=git", "gitVersionPrintBuildInfo") {
+                assertThat(output).contains("Could not calculate git version")
+                assertThat(output).contains("Could not find git repository")
             }
         }
     }
 
     @Test
-    fun `version is calculated successfully for tag`() {
+    fun `version is not calculated if current version is not 'gitversion'`() {
         GradleTest {
             withTemporaryDirectory {
-                path.extractDirectoryFromClasspath("common", "simple")
+                path.extractDirectoryFromClasspath("common")
+                path.extractFileFromClasspath("other/gitignore", ".gitignore")
             }
             git {
                 commit("Initial commit")
-                tag("1.0.0")
-            }
-            execute("versionInfo") {
-                assertThat(output).contains("Version: 1.0.0")
-            }
-        }
-    }
-
-    @Test
-    fun `version is calculated successfully for commit after tag`() {
-        GradleTest {
-            withTemporaryDirectory {
-                path.extractDirectoryFromClasspath("common", "simple")
-            }
-            git {
-                commit("Initial commit")
-                tag("1.0.0")
+                tag("v1.0.0")
                 commit("Second commit")
             }
-            execute("versionInfo") {
+            execute("-PgitVersionPipeline=none", "-Pversion=custom", "gitVersionPrintBuildInfo") {
+                assertThat(output).contains("Version: custom")
+            }
+        }
+    }
+
+    @Test
+    fun `version is calculated using defaults`() {
+        GradleTest {
+            withTemporaryDirectory {
+                path.extractDirectoryFromClasspath("common")
+                path.extractFileFromClasspath("other/gitignore", ".gitignore")
+            }
+            git {
+                commit("Initial commit")
+                tag("v1.0.0")
+                commit("Second commit")
+            }
+            execute("-PgitVersionPipeline=none", "-Pversion=git", "gitVersionPrintBuildInfo") {
                 assertThat(output).contains("Version: 1.0.1")
             }
         }
     }
 
     @Test
-    fun `version is calculated successfully for commit on unparseable tag`() {
+    fun `version is calculated using custom patterns`() {
         GradleTest {
             withTemporaryDirectory {
-                path.extractDirectoryFromClasspath("common", "simple")
+                path.extractDirectoryFromClasspath("common")
+                path.extractFileFromClasspath("other/gitignore", ".gitignore")
+                path.extractFileFromClasspath("properties/custom.properties", "gradle.properties")
             }
             git {
                 commit("Initial commit")
-                tag("1.0.0")
-                commit("Second commit")
-                tag("wrongformat")
+                tag("Version-1.0.0")
+                commit("Major change")
+                commit("Minor change")
+                commit("Patch change")
             }
-            execute("versionInfo") {
+            execute("-PgitVersionPipeline=none", "-Pversion=git", "gitVersionPrintBuildInfo") {
+                assertThat(output).contains("Version: 2.1.1")
+            }
+        }
+    }
+
+    @Test
+    fun `qualifier default qualifier clean state is set correctly`() {
+        GradleTest {
+            withTemporaryDirectory {
+                path.extractDirectoryFromClasspath("common")
+                path.extractFileFromClasspath("other/gitignore", ".gitignore")
+            }
+            git {
+                commit("Initial commit")
+                tag("v1.0.0")
+                commit("Second commit")
+            }
+            execute("-PgitVersionPipeline=none", "-Pversion=git", "gitVersionPrintBuildInfo") {
                 assertThat(output).contains("Version: 1.0.1")
             }
         }
     }
 
     @Test
-    fun `version is calculated successfully for commit on second tag`() {
+    fun `qualifier 'auto' for dirty state is set correctly`() {
         GradleTest {
             withTemporaryDirectory {
-                path.extractDirectoryFromClasspath("common", "simple")
+                path.extractDirectoryFromClasspath("common")
+                path.extractFileFromClasspath("other/gitignore", ".gitignore")
             }
             git {
                 commit("Initial commit")
-                tag("1.0.0")
+                tag("v1.0.0")
                 commit("Second commit")
-                tag("2.0.0")
+                file("test").writeText("Hallo")
             }
-            execute("versionInfo") {
-                assertThat(output).contains("Version: 2.0.0")
+            execute("-PgitVersionPipeline=none", "-Pversion=git", "gitVersionPrintBuildInfo") {
+                assertThat(output).contains("Version: 1.0.2-SNAPSHOT")
             }
         }
     }
 
     @Test
-    fun `version is calculated successfully for dirty state`() {
+    fun `qualifier for 'hash' for clean state is set correctly`() {
         GradleTest {
             withTemporaryDirectory {
-                path.extractDirectoryFromClasspath("common", "simple")
+                path.extractDirectoryFromClasspath("common")
+                path.extractFileFromClasspath("other/gitignore", ".gitignore")
             }
             git {
                 commit("Initial commit")
-                tag("1.0.0")
+                tag("v1.0.0")
                 commit("Second commit")
-                tag("2.0.0")
-                commit("Third commit")
             }
-            file("content.txt") {
-                writeText("changed")
-            }
-            execute("versionInfo") {
-                assertThat(output).contains("Version: 2.0.2-SNAPSHOT")
+            execute(
+                "-Pversion=git",
+                "-PgitVersionQualifier=hash",
+                "-PgitVersionPipeline=none",
+                "gitVersionPrintBuildInfo",
+            ) {
+                assertThat(output).contains("Version: 1.0.1-")
             }
         }
     }
 
     @Test
-    fun `version is calculated successfully with configured prefix`() {
+    fun `'hash' qualifier dirty state is set correctly`() {
         GradleTest {
             withTemporaryDirectory {
-                path.extractDirectoryFromClasspath("common", "configured")
+                path.extractDirectoryFromClasspath("common")
+                path.extractFileFromClasspath("other/gitignore", ".gitignore")
             }
             git {
                 commit("Initial commit")
-                tag("TEST-1.0.0")
+                tag("v1.0.0")
                 commit("Second commit")
-                tag("2.0.0")
+                file("test").writeText("Hallo")
             }
-            file("content.txt") {
-                writeText("changed")
-            }
-            execute("versionInfo") {
-                assertThat(output).contains("Version: 1.0.2")
-            }
-        }
-    }
-
-    @Test
-    fun `version is calculated successfully with properties prefix`() {
-        GradleTest {
-            withTemporaryDirectory {
-                path.extractDirectoryFromClasspath("common", "properties")
-            }
-            git {
-                commit("Initial commit")
-                tag("VERSION-1.0.0")
-                commit("patch: Second commit")
-                tag("2.0.0")
-            }
-            file("content.txt") {
-                writeText("changed")
-            }
-            execute("versionInfo") {
-                assertThat(output).contains("Version: 1.0.2")
+            execute(
+                "-Pversion=git",
+                "-PgitVersionPipeline=none",
+                "-PgitVersionQualifier=hash",
+                "gitVersionPrintBuildInfo",
+            ) {
+                assertThat(output).contains("Version: 1.0.2-SNAPSHOT")
             }
         }
     }
 
     @Test
-    fun `version is calculated successfully with semantic history`() {
+    fun `properties file is generated`() {
         GradleTest {
             withTemporaryDirectory {
-                path.extractDirectoryFromClasspath("common", "properties")
+                path.extractDirectoryFromClasspath("common")
+                path.extractFileFromClasspath("other/gitignore", ".gitignore")
             }
             git {
                 commit("Initial commit")
-                tag("VERSION-1.0.0")
-                commit("breaking: breaking change")
-                commit("feature: custom new feature")
-                commit("try: tried to fix it")
-                commit("patch: feature bugfix")
+                tag("v1.0.0")
+                commit("Second commit")
             }
-            file("content.txt") {
-                writeText("changed")
-            }
-            execute("versionInfo") {
-                assertThat(output).contains("Version: 2.1.2-SNAPSHOT")
+            execute("-PgitVersionPipeline=none", "-Pversion=git", "gitVersionCreatePropertiesFile") {
+                val file = file("build/resources/main/gitVersion.properties")
+                val content = file.readText()
+
+                assertThat(content).contains("version=1.0.1")
             }
         }
     }
+
+    @Test
+    fun `version file is generated`() {
+        GradleTest {
+            withTemporaryDirectory {
+                path.extractDirectoryFromClasspath("common")
+                path.extractFileFromClasspath("other/gitignore", ".gitignore")
+            }
+            git {
+                commit("Initial commit")
+                tag("v1.0.0")
+                commit("Second commit")
+            }
+            execute("-PgitVersionPipeline=none", "-Pversion=git", "gitVersionCreateVersionFile") {
+                val file = file("build/VERSION")
+                val content = file.readText()
+
+                assertThat(content).contains("1.0.1")
+            }
+        }
+    }
+
 }
