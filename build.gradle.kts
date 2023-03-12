@@ -1,6 +1,4 @@
 plugins {
-    id("java-gradle-plugin")
-    id("maven-publish")
     id("org.jetbrains.kotlin.jvm") version "1.8.10"
     id("com.gradle.plugin-publish") version "1.1.0"
 }
@@ -26,6 +24,12 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-api:$junitVersion")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:$junitVersion")
 }
+
+pluginBundle {
+    website = "https://github.com/solugo/gradle-gitversion-plugin"
+    vcsUrl = "https://github.com/solugo/gradle-gitversion-plugin.git"
+    tags = listOf("git", "version")
+ }
 
 gradlePlugin {
     plugins {
